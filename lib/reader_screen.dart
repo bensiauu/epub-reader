@@ -1,6 +1,10 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart'; // Import flutter_html
 import 'package:epubx/epubx.dart';
 import 'dart:io';
+import 'epub_service.dart'; // Import the EpubService class
 
 class ReaderScreen extends StatefulWidget {
   final File epubFile;
@@ -13,28 +17,32 @@ class ReaderScreen extends StatefulWidget {
 
 class ReaderScreenState extends State<ReaderScreen> {
   late Future<EpubBookRef> _epubBookRef;
+  late EpubService epubService; // Initialize the EpubService class
   int _currentChapterIndex = 0;
   String _chapterContent = '';
 
   @override
   void initState() {
     super.initState();
-    _epubBookRef = _loadEpub(widget.epubFile);
+    epubService = EpubService(); // Instantiate the EpubService
+    _epubBookRef = epubService
+        .loadEpub(widget.epubFile); // Use the EpubService to load the EPUB
   }
 
-  Future<EpubBookRef> _loadEpub(File epubFile) async {
-    var bytes = await epubFile.readAsBytes();
-    return await EpubReader.openBook(bytes); // Open the EPUB book lazily
-  }
+  // Refactor to use the EpubService to load chapters
+  Future<void> _loadChapterContent(int chapterIndex) async {
+    var bookRef = await _epubBookRef;
+    var content = await epubService.loadChapter(
+        bookRef, chapterIndex); // Use EpubService to load the chapter
 
-  Future<void> _loadChapter(EpubBookRef bookRef, int chapterIndex) async {
-    // Await the TableOfContents items which is a Future
-    var tocItems = await bookRef.getChapters(); // Await the future
-    if (chapterIndex < tocItems.length) {
-      var chapter = await tocItems[chapterIndex].readHtmlContent();
+    if (content != null && content.isNotEmpty) {
       setState(() {
-        _chapterContent = chapter;
+        _chapterContent = content;
         _currentChapterIndex = chapterIndex;
+      });
+    } else {
+      setState(() {
+        _chapterContent = 'No content available for this chapter.';
       });
     }
   }
@@ -69,13 +77,12 @@ class ReaderScreenState extends State<ReaderScreen> {
           } else if (snapshot.hasError) {
             return const Center(child: Text('Error loading EPUB'));
           } else if (snapshot.hasData) {
-            var bookRef = snapshot.data!;
             if (_chapterContent.isEmpty) {
               // Load the first chapter initially
-              _loadChapter(bookRef, _currentChapterIndex);
+              _loadChapterContent(_currentChapterIndex);
               return const Center(child: CircularProgressIndicator());
             } else {
-              return _buildChapterContent();
+              return _buildChapterContent(); // Render chapter with HTML
             }
           } else {
             return const Center(child: Text('No content available.'));
@@ -88,19 +95,12 @@ class ReaderScreenState extends State<ReaderScreen> {
   Widget _buildChapterContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
-      child: Text(
-        _chapterContent,
-        style: const TextStyle(fontSize: 16),
+      child: Html(
+        data: _chapterContent, // Render the HTML content
+        style: {
+          "body": Style(fontSize: FontSize(16.0)), // Customize styles if needed
+        },
       ),
     );
-  }
-
-  Future<void> _loadChapterContent(int chapterIndex) async {
-    var bookRef = await _epubBookRef;
-    // Await the TableOfContents items
-    var tocItems = await bookRef.getChapters(); // Await the future
-    if (chapterIndex >= 0 && chapterIndex < tocItems.length) {
-      _loadChapter(bookRef, chapterIndex);
-    }
   }
 }

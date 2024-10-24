@@ -1,28 +1,37 @@
 import 'package:flutter/material.dart';
-import 'reader_screen.dart';  // Import the ReaderScreen widget
+import 'package:file_picker/file_picker.dart';
+import 'dart:io'; // Import File from dart:io
+import 'reader_screen.dart'; // Import the ReaderScreen widget
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'EPUB Reader',
+      title: 'Freader',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: HomeScreen(),  // This will be a simple file picker interface
+      home: const HomeScreen(), // This will be a simple file picker interface
     );
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  Future<void> openEpub(BuildContext context) async {
-    // Use a package like file_picker or path_provider to select an EPUB file
-    // Example using file_picker (you need to add file_picker as a dependency)
-    import 'package:file_picker/file_picker.dart';
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  HomeScreenState createState() => HomeScreenState();
+}
+
+class HomeScreenState extends State<HomeScreen> {
+  Future<void> openEpub() async {
+    // Use file_picker to select an EPUB file
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['epub'],
@@ -30,7 +39,11 @@ class HomeScreen extends StatelessWidget {
 
     if (result != null && result.files.single.path != null) {
       final epubFile = File(result.files.single.path!);
-      // Navigate to ReaderScreen and pass the file
+
+      // Ensure the widget is still mounted before navigating
+      if (!mounted) return;
+
+      // Navigate to ReaderScreen and pass the file (with State's BuildContext)
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => ReaderScreen(epubFile: epubFile),
@@ -43,12 +56,12 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('EPUB Reader Home'),
+        title: const Text('EPUB Reader Home'),
       ),
       body: Center(
         child: ElevatedButton(
-          onPressed: () => openEpub(context),
-          child: Text('Open EPUB'),
+          onPressed: () => openEpub(),
+          child: const Text('Open EPUB'),
         ),
       ),
     );
